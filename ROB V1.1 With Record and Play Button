@@ -2,7 +2,7 @@
 
 Servo servos[6];
 int potPins[6] = {A0, A1, A2, A3, A4, A5};
-int servoPins[6] = {10, 9, 8, 7, 6, 4};
+int servoPins[6] = {10, 9, 8, 7, 6, 5};
 
 const int recordButton = 3;
 const int playButton = 2;
