@@ -1,0 +1,161 @@
+#include <Servo.h>
+
+Servo servos[6];
+int potPins[6] = {A0, A1, A2, A3, A4, A5};
+int servoPins[6] = {10, 9, 8, 7, 6, 5};
+
+const int recordButton = 3;
+const int playButton = 2;
+
+const int maxFrames = 120;
+byte recordedPositions[6][maxFrames];
+int currentFrame = 0;
+bool isRecording = false;
+bool isPlaying = false;
+int totalFrames = 0;
+
+bool lastRecordState = HIGH;
+bool lastPlayState = HIGH;
+
+void setup() {
+  Serial.begin(9600);
+  
+  for (byte i = 0; i < 6; i++) {
+    servos[i].attach(servoPins[i]);
+  }
+  
+  pinMode(recordButton, INPUT_PULLUP);
+  pinMode(playButton, INPUT_PULLUP);
+  
+  Serial.println(F("Servo Record/Play System Ready"));
+  Serial.println(F("Button 1 (Pin 3): Record/Stop Recording"));
+  Serial.println(F("Button 2 (Pin 2): Play/Stop Playing"));
+  Serial.print(F("Recording capacity: "));
+  Serial.print(maxFrames);
+  Serial.println(F(" frames"));
+}
+
+void loop() {
+  bool currentRecordState = digitalRead(recordButton);
+  bool currentPlayState = digitalRead(playButton);
+  
+  if (currentRecordState == LOW && lastRecordState == HIGH) {
+    delay(50);
+    if (digitalRead(recordButton) == LOW) {
+      toggleRecording();
+    }
+  }
+  
+  if (currentPlayState == LOW && lastPlayState == HIGH) {
+    delay(50);
+    if (digitalRead(playButton) == LOW) {
+      togglePlayback();
+    }
+  }
+  
+  lastRecordState = currentRecordState;
+  lastPlayState = currentPlayState;
+  
+  if (isRecording) {
+    recordPositions();
+  } else if (isPlaying) {
+    playbackPositions();
+  } else {
+    normalOperation();
+  }
+}
+
+void toggleRecording() {
+  if (!isRecording) {
+    isRecording = true;
+    isPlaying = false;
+    currentFrame = 0;
+    Serial.println(F("*** RECORDING STARTED ***"));
+  } else {
+    isRecording = false;
+    totalFrames = currentFrame;
+    Serial.print(F("*** RECORDING STOPPED - "));
+    Serial.print(totalFrames);
+    Serial.println(F(" frames recorded ***"));
+  }
+}
+
+void togglePlayback() {
+  if (!isPlaying && totalFrames > 0) {
+    isPlaying = true;
+    isRecording = false;
+    currentFrame = 0;
+    Serial.println(F("*** PLAYBACK STARTED ***"));
+    Serial.print(F("Playing "));
+    Serial.print(totalFrames);
+    Serial.println(F(" recorded frames"));
+  } else if (isPlaying) {
+    isPlaying = false;
+    Serial.println(F("*** PLAYBACK STOPPED ***"));
+  } else {
+    Serial.println(F("No recorded movements"));
+  }
+}
+
+void recordPositions() {
+  if (currentFrame < maxFrames) {
+    for (byte i = 0; i < 6; i++) {
+      int val = analogRead(potPins[i]);
+      byte servoPos = map(val, 0, 1023, 0, 180);
+      recordedPositions[i][currentFrame] = servoPos;
+      servos[i].write(servoPos);
+    }
+    
+    Serial.print(F("Frame "));
+    Serial.print(currentFrame + 1);
+    Serial.print(F("/"));
+    Serial.print(maxFrames);
+    Serial.print(F(": "));
+    for (byte i = 0; i < 6; i++) {
+      Serial.print(recordedPositions[i][currentFrame]);
+      Serial.print(F(" "));
+    }
+    Serial.println();
+    
+    currentFrame++;
+    delay(100);
+  } else {
+    isRecording = false;
+    totalFrames = maxFrames;
+    Serial.println(F("*** MAX FRAMES REACHED ***"));
+  }
+}
+
+void playbackPositions() {
+  if (currentFrame < totalFrames) {
+    for (byte i = 0; i < 6; i++) {
+      servos[i].write(recordedPositions[i][currentFrame]);
+    }
+    
+    Serial.print(F("Playing frame "));
+    Serial.print(currentFrame + 1);
+    Serial.print(F("/"));
+    Serial.print(totalFrames);
+    Serial.print(F(": "));
+    for (byte i = 0; i < 6; i++) {
+      Serial.print(recordedPositions[i][currentFrame]);
+      Serial.print(F(" "));
+    }
+    Serial.println();
+    
+    currentFrame++;
+    delay(100);
+  } else {
+    currentFrame = 0;
+    Serial.println(F("*** PLAYBACK RESTARTING ***"));
+  }
+}
+
+void normalOperation() {
+  for (byte i = 0; i < 6; i++) {
+    int val = analogRead(potPins[i]);
+    byte servoPos = map(val, 0, 1023, 0, 180);
+    servos[i].write(servoPos);
+  }
+  delay(20);
+}
